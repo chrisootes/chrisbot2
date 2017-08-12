@@ -14,7 +14,7 @@ class CogSpotify:
 	def __init__(self, bot, bot_logger, config):
 		self.bot = bot
 		self.bot_logger = bot_logger
-		
+
 		spotify_id = config.get("Clientid")
 		spotify_secret = config.get("Clientsecret")
 
@@ -44,6 +44,7 @@ class CogSpotify:
 	async def summon(self, ctx):
 		"""Summons player."""
 		await self.bot.delete_message(ctx.message)
+		self.bot_logger.info("summon command issued")
 		self.bot.loop.create_task(CogSpotify.refresh_device(self))
 		return True
 
@@ -51,5 +52,6 @@ class CogSpotify:
 	async def skip(self, ctx):
 		"""Skips song."""
 		await self.bot.delete_message(ctx.message)
+		self.bot_logger.info("skip command issued")
 		self.spotify_client.api.me_player_next(device_id=self.spotify_device)
 		return True
