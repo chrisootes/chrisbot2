@@ -1,0 +1,13 @@
+[DEFAULT]
+Token = yours
+Prefix = !
+Description = Test bot
+
+[CogChris]
+Load = no
+
+[CogSpotify]
+Load = no
+Clientid = yours
+Clientsecret = yours
+Refreshtoken = yours
