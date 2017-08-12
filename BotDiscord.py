@@ -18,8 +18,8 @@ bot_description = bot_config.get("DEFAULT", "Description")
 bot = commands.Bot(command_prefix=bot_prefix, description=bot_description)
 
 for cog_name in bot_config.sections():
-	bot_logger.info("loading cog " + cog_name)
 	if bot_config.getboolean(cog_name, "Load"):
+		bot_logger.info("loading cog " + cog_name)
 		try:
 			cog_import = importlib.import_module(cog_name)
 			cog = getattr(cog_import, cog_name)
@@ -28,6 +28,9 @@ for cog_name in bot_config.sections():
 		except Exception as e:
 			print(e)
 			bot_logger.warning("cannot load " + str(cog_name))
+	else:
+		bot_logger.warning("not loading " + str(cog_name))
+
 
 @bot.event
 async def on_ready():

@@ -17,13 +17,15 @@ class CogSpotify:
 
 		spotify_id = config.get("Clientid")
 		spotify_secret = config.get("Clientsecret")
+		spotify_refresh = config.get("Refreshtoken")
 
 		spotify_token = {}
-		spotify_token['access_token'] = config.get("Refreshtoken")
+		spotify_token['access_token'] = spotify_refresh
 		spotify_token['expires_at'] = int(time.time()) + 300
 
 		self.bot_logger.info("spotify clientid " + spotify_id)
 		self.bot_logger.info("spotify clientsecret " + spotify_secret)
+		self.bot_logger.info("spotify clientsecret " + spotify_refresh)
 
 		spotify_auth = spotify.OAuth(spotify_id, spotify_secret, auto_refresh=True)
 		spotify_auth.token = spotify_token
