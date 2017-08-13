@@ -2,24 +2,20 @@ import asyncio
 import discord
 from discord.ext import commands
 
-from gi.repository import Gst
-
-Gst.init(None)
-
-import time
-import math
-import struct
+import logging
 import configparser
 import spotify
+
+import CogSpotifyHelper from CogSpotifyHelper
 
 class CogSpotify:
 	"""
 	Spotify commands for discord bot.
 	https://github.com/chrisootes/chrisbot
 	"""
-	def __init__(self, bot, bot_logger, config):
+	def __init__(self, bot, config):
 		self.bot = bot
-		self.bot_logger = bot_logger
+		self.logger = logging.getLogger("discord.cog.spotify")
 
 		spotify_id = config.get("Clientid")
 		spotify_secret = config.get("Clientsecret")
@@ -29,9 +25,9 @@ class CogSpotify:
 		spotify_token['access_token'] = spotify_refresh
 		spotify_token['expires_at'] = int(time.time()) + 300
 
-		self.bot_logger.info("spotify clientid " + spotify_id)
-		self.bot_logger.info("spotify clientsecret " + spotify_secret)
-		self.bot_logger.info("spotify clientsecret " + spotify_refresh)
+		self.logger.info("spotify clientid " + spotify_id)
+		self.logger.info("spotify clientsecret " + spotify_secret)
+		self.logger.info("spotify clientsecret " + spotify_refresh)
 
 		spotify_auth = spotify.OAuth(spotify_id, spotify_secret, auto_refresh=True)
 		spotify_auth.token = spotify_token
@@ -40,37 +36,16 @@ class CogSpotify:
 		self.spotify_device = None
 
 		self.voice = None
-		self.list_skippers = []
+		self.player = None
 
-	async def background_song(self):
-		capture = alsaaudio.PCM(type=alsaaudio.PCM_CAPTURE, mode=alsaaudio.PCM_NORMAL, device="hw:CARD=Loopback,DEV=1")
-		capture.setrate(48000)
-		capture.setformat(alsaaudio.PCM_FORMAT_S16_LE)
-		capture.setperiodsize(960)
-		time_delay = 0.02
+	async def check_spotify(self):
 		while not self.bot.is_closed:
-			time_start = time.time()
-			data = capture.read()
-			if data[0] == 960:
-				try:
-					self.voice.play_audio(data[1])
-				except Exception as e:
-					print(e)
-			else:
-				self.bot_logger.warning("bytes " + str(data[0]))
-			time_end = time.time()
-			delay = max(0, time_delay - (time_end - time_start))
-			self.bot_logger.info("block " + str(time_end - time_start))
-			self.bot_logger.info("delay " + str(delay))
-			await asyncio.sleep(delay)
-
-	async def refresh_device(self):
-		while not self.bot.is_closed:
+			# TODO ceck currentn song to resset self.list_skippers = []
 			devices = self.spotify_client.api.me_player_devices()
 			for device in devices['devices']:
 				if device['is_active']:
 					self.spotify_device = device['id']
-					self.bot_logger.info("spotify device " + self.spotify_device)
+					self.logger.info("spotify device " + self.spotify_device)
 			await asyncio.sleep(100)
 
 	async def check_skip(self, say_status):
@@ -78,11 +53,11 @@ class CogSpotify:
 		for member in self.voice.server.members:
 			if member.voice.voice_channel == self.voice.channel:
 				total_listening += 1
-		self.bot_logger.info("people listening " + str(total_listening))
+		self.logger.info("people listening " + str(total_listening))
 		skipper_needed = math.floor(0.5*total_listening)
-		self.bot_logger.info("people needed " + str(skipper_needed))
+		self.logger.info("people needed " + str(skipper_needed))
 		skipper_amount = len(self.list_skippers)
-		self.bot_logger.info("people voted " + str(skipper_amount))
+		self.logger.info("people voted " + str(skipper_amount))
 		if skipper_amount >= skipper_needed:
 			self.list_skippers = []
 			self.spotify_client.api.me_player_next(device_id=self.spotify_device)
@@ -96,31 +71,11 @@ class CogSpotify:
 			await CogSpotify.check_skip(self, False)
 			await asyncio.sleep(10)
 
-	@commands.command(pass_context=True, no_pm=True)
-	async def summon(self, ctx):
-		"""Summons player."""
-		await self.bot.delete_message(ctx.message)
-		self.bot_logger.info("summon command issued by " + ctx.message.author.name)
-		if ctx.message.author.voice_channel is None:
-			await self.bot.say("You are not in a voice channel.")
-			return False
-		if self.voice == None:
-			self.bot_logger.info("joining voice channel " + ctx.message.author.voice_channel.name)
-			self.voice = await self.bot.join_voice_channel(ctx.message.author.voice_channel)
-			self.bot_logger.info("creating background task")
-			self.bot.loop.create_task(CogSpotify.background_song(self))
-			self.bot.loop.create_task(CogSpotify.refresh_device(self))
-			self.bot.loop.create_task(CogSpotify.check_loop(self))
-		else:
-			self.bot_logger.info("moving to voice channel " + ctx.message.author.voice_channel.name)
-			await self.voice.move_to(ctx.message.author.voice_channel)
-		return True
-
 	@commands.command(pass_context=True)
 	async def skip(self, ctx):
 		"""Vote to skip song."""
 		await self.bot.delete_message(ctx.message)
-		self.bot_logger.info("skip command issued by " + ctx.message.author.name)
+		self.logger.info("skip command issued by " + ctx.message.author.name)
 		for skipper in self.list_skippers:
 			if skipper == ctx.message.author.id:
 				await self.bot.say('Cant skip twice')
@@ -129,3 +84,43 @@ class CogSpotify:
 		self.list_skippers.append(ctx.message.author.id)
 		await CogSpotify.check_skip(self, True)
 		return True
+
+	@commands.command(pass_context=True, no_pm=True)
+	async def summon(self, ctx):
+		"""Summons player."""
+		await self.bot.delete_message(ctx.message)
+		self.logger.info("summon command issued by " + ctx.message.author.name)
+		if ctx.message.author.voice_channel is None:
+			await self.bot.say("You are not in a voice channel.")
+			return False
+		if self.voice == None:
+			self.logger.info("joining voice channel " + ctx.message.author.voice_channel.name)
+			self.voice = await self.bot.join_voice_channel(ctx.message.author.voice_channel)
+			self.logger.info("creating thread")
+			self.player = CogSpotifyHelper(self.voice)
+			self.player.setName('Player')
+			self.player.start()
+			self.logger.info("creating background task")
+			self.bot.loop.create_task(CogSpotify.check_spotify(self))
+			self.bot.loop.create_task(CogSpotify.check_loop(self))
+		else:
+			self.logger.info("moving to voice channel " + ctx.message.author.voice_channel.name)
+			await self.voice.move_to(ctx.message.author.voice_channel)
+		return True
+
+	@commands.command(pass_context=True)
+	async def stop(self, ctx):
+		"""Stop player."""
+		await self.bot.delete_message(ctx.message)
+		self.logger.info("stop command issued by " + ctx.message.author.name)
+		if self.player is None:
+			self.logger.info("with id " + ctx.message.author.id)
+			await self.bot.say('Nothin to stop')
+		elif ctx.message.author.id == '100280813244936192':
+			self.logger.info("stopping thread")
+			self.player.stop()
+			self.logger.info("joining thread")
+			self.player.join() #bugged
+			self.logger.info("joined thread")
+		else:
+			await self.bot.say('Vote to skip')

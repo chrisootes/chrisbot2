@@ -7,7 +7,7 @@ import configparser
 import importlib
 
 logging.basicConfig(level=logging.INFO)
-bot_logger = logging.getLogger("bot")
+logger = logging.getLogger("discord.bot")
 
 bot_config = configparser.ConfigParser()
 bot_config.read("BotDiscord.ini")
@@ -19,22 +19,22 @@ bot = commands.Bot(command_prefix=bot_prefix, description=bot_description)
 
 for cog_name in bot_config.sections():
 	if bot_config.getboolean(cog_name, "Load"):
-		bot_logger.info("loading cog " + cog_name)
+		logger.info("loading cog " + cog_name)
 		try:
 			cog_import = importlib.import_module(cog_name)
 			cog = getattr(cog_import, cog_name)
 			cog_config = bot_config[cog_name]
-			bot.add_cog(cog(bot, bot_logger, cog_config))
+			bot.add_cog(cog(bot, cog_config))
 		except Exception as e:
 			print(e)
-			bot_logger.warning("cannot load " + str(cog_name))
+			logger.warning("cannot load " + str(cog_name))
 	else:
-		bot_logger.warning("not loading " + str(cog_name))
+		logger.warning("not loading " + str(cog_name))
 
 
 @bot.event
 async def on_ready():
-	bot_logger.info("logged in as " + str(bot.user))
-	bot_logger.info("user id " + str(bot.user.id))
+	logger.info("logged in as " + str(bot.user))
+	logger.info("user id " + str(bot.user.id))
 
 bot.run(bot_token)

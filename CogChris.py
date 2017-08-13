@@ -9,7 +9,7 @@ class CogChris:
 	Chris commands for discord bot.
 	https://github.com/chrisootes/chrisbot
 	"""
-	def __init__(self, bot, bot_logger, config):
+	def __init__(self, bot, config):
 		self.bot = bot
 
 	@commands.command(pass_context=True)
