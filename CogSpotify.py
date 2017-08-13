@@ -2,12 +2,15 @@ import asyncio
 import discord
 from discord.ext import commands
 
+from gi.repository import Gst
+
+Gst.init(None)
+
 import time
 import math
 import struct
 import configparser
 import spotify
-import alsaaudio
 
 class CogSpotify:
 	"""
@@ -57,8 +60,9 @@ class CogSpotify:
 				self.bot_logger.warning("bytes " + str(data[0]))
 			time_end = time.time()
 			delay = max(0, time_delay - (time_end - time_start))
-			self.bot_logger.info("delay " + str(time_end - time_start))
-			#await asyncio.sleep(delay)
+			self.bot_logger.info("block " + str(time_end - time_start))
+			self.bot_logger.info("delay " + str(delay))
+			await asyncio.sleep(delay)
 
 	async def refresh_device(self):
 		while not self.bot.is_closed:
@@ -105,8 +109,8 @@ class CogSpotify:
 			self.voice = await self.bot.join_voice_channel(ctx.message.author.voice_channel)
 			self.bot_logger.info("creating background task")
 			self.bot.loop.create_task(CogSpotify.background_song(self))
-			#self.bot.loop.create_task(CogSpotify.refresh_device(self))
-			#self.bot.loop.create_task(CogSpotify.check_loop(self))
+			self.bot.loop.create_task(CogSpotify.refresh_device(self))
+			self.bot.loop.create_task(CogSpotify.check_loop(self))
 		else:
 			self.bot_logger.info("moving to voice channel " + ctx.message.author.voice_channel.name)
 			await self.voice.move_to(ctx.message.author.voice_channel)
