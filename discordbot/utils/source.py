@@ -44,6 +44,7 @@ class GstAudio(discord.AudioSource):
 		return True
 
 	def read(self):
+		#TODO optimize deblock or vm is to slow
 		gst_sample = self.gst_sink.pull_sample()
 		gst_buffer = gst_sample.get_buffer()
 		return gst_buffer.extract_dup(0, gst_buffer.get_size())
