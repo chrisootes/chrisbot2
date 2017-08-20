@@ -8,29 +8,30 @@ from discordbot.utils.logger import logger
 
 class ExampleCommands:
 	"""
-	Chris commands for discord bot.
-	https://github.com/chrisootes/chrisbot
+	Example commands for discord bot.
+	https://github.com/chrisootes/chrisbot2
 	"""
 	def __init__(self, bot):
 		self.bot = bot
 
-	@commands.command(pass_context=True)
-	async def echo(self, context, argument : str):
+	@commands.command(pass_ctx=True)
+	async def echo(self, ctx, argument : str):
 		"""Repeats message."""
-		logger.info("echo command issued by {0}".format(context.message.author.name))
-		await context.send("Reply: {0}".format(argument))
+		logger.info("echo command issued by {0}".format(ctx.message.author.name))
+		await ctx.send("Reply: {0}".format(argument))
 
-	@commands.command(pass_context=True)
-	async def reet(self, context, argument : int):
+	@commands.command(pass_ctx=True)
+	async def reet(self, ctx, argument : int):
 		"""Rates with buts."""
-		logger.info("reet command issued by {0}".format(context.message.author.name))
-		await context.send("<:reet:240860984086888449> {0} from {1}".format(argument, context.message.author))
+		logger.info("reet command issued by {0}".format(ctx.message.author.name))
+		await ctx.send(argument*"<:reet:240860984086888449>" + " from {0.message.author}".format(ctx))
 
-	@commands.command(pass_context=True)
-	async def debug(self, context):
-		"""Current ids."""
-		logger.info("checkid command issued by {0}".format(context.message.author.name))
-		await context.send("Full context is : ```{0}```".format(vars(context)))
+	@commands.command(pass_ctx=True)
+	async def debug(self, ctx):
+		"""Debug command."""
+		logger.info("debug command issued by {0}".format(ctx.message.author.name))
+		await ctx.send("Full ctx is : ```{0}```".format(vars(ctx)))
+		await ctx.send("Full bot is : ```{0}```".format(vars(self.bot)))
 
 def setup(bot):
 	bot.add_cog(ExampleCommands(bot))
