@@ -13,7 +13,7 @@ class ExampleCommands:
 	"""
 	def __init__(self, bot):
 		self.bot = bot
-		self.robot_list = []
+		self.robot_command = None
 		self.robot_task = self.bot.loop.create_task(ExampleCommands.robot_loop(self))
 
 	def __unload(self):
@@ -22,11 +22,10 @@ class ExampleCommands:
 	async def robot_loop(self):
 		try:
 			while not self.bot.is_closed():
-				logger.info("robot command list is  now {0}".format(self.robot_list))
-				for robot_command in self.robot_list:
-					logger.info("robot command excuting {0.message} in {0.channnel_id}".format(robot_command))
-					robot_channel = self.bot.get_channel(robot_command.channnel_id)
-					await robot_channel.send(robot_command.message)
+				if self.robot_command is not None:
+					logger.info("robot command excuting {0[message]} in {0[channnel_id]}".format(self.robot_command))
+					robot_channel = self.bot.get_channel(self.robot_command['channnel_id'])
+					await robot_channel.send(self.robot_command['message'])
 				await asyncio.sleep(60)
 		except asyncio.CancelledError:
 			pass
@@ -37,11 +36,10 @@ class ExampleCommands:
 	async def robot(self, ctx, argument : str):
 		"""Repeats message."""
 		logger.info("robot command issued by {0}".format(ctx.message.author.name))
-		robot_command = {}
-		robot_command["channnel_id"] = ctx.message.channel.id
-		robot_command["message"] = argument
-		self.robot_list.append(robot_command)
-		logger.info("robot command list is  now {0}".format(self.robot_list))
+		self.robot_command = {}
+		self.robot_command["channnel_id"] = ctx.message.channel.id
+		self.robot_command["message"] = argument
+		logger.info("robot command list is  now {0}".format(self.robot_command))
 		await ctx.send("New robot added")
 
 	@commands.command(pass_ctx=True)

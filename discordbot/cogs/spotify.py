@@ -9,7 +9,7 @@ import math
 import urllib.parse
 import os.path
 import spotipy
-import spotipy.util as util
+import spotipy.util
 
 from discordbot.utils.config import config
 from discordbot.utils.audio import GstAudio
@@ -24,44 +24,44 @@ class SpotifyCommands:
 	def __init__(self, bot):
 		self.bot = bot
 
-		game = discord.Game(name="Beep Boop")
-		await self.bot.change_presence(status=discord.Status.idle, game=bot_game)
+		self.spotify_username = config.get('spotify', 'Username')
+		self.spotify_id = config.get('spotify', 'Id')
+		self.spotify_secret = config.get('spotify', 'Secret')
+		self.spotify_refresh = config.get('spotify', 'Refresh')
+		self.spotify_scope = "user-read-playback-state user-modify-playback-state"
 
-		spotify_username = config.get('spotify', 'Username')
-		spotify_client = config.get('spotify', 'Client')
-		spotify_secret = config.get('spotify', 'Secret')
-		spotify_refresh = config.get('spotify', 'Refresh')
-		spotify_scope = "user-read-playback-state user-modify-playback-state"
-
-		spotify_token = util.prompt_for_user_token(spotify_username, spotify_scope, spotify_client, spotify_secret)
-
-		self.spotify = spotipy.Spotify(auth=spotify_token)
+		self.spotify_client = None
 
 		self.spotify_device = None
-		self.spotify_context = None #TODO memeplaylist?
+		self.spotify_context = None #TODO standard playlist?
 
 		self.song_list = []
 		self.skip_list = []
 
-		self.device_task = self.bot.loop.create_task(SpotifyCommands.device_loop(self))
-		self.player_task = self.bot.loop.create_task(SpotifyCommands.player_loop(self))
+		self.device_task = None
+		self.player_task = None
 
 	def __unload(self):
-		self.device_task.cancel()
-		self.player_task.cancel()
+		if device_task is not None:
+			self.device_task.cancel()
+		if player_task is not None:
+			self.player_task.cancel()
 
 	async def device_loop(self):
 		try:
 			while not self.bot.is_closed():
 				self.spotify_device = None
-				devices = self.spotify.current_user_player_devices()
-				for device in devices["devices"]:
-					if device["is_active"]:
-						self.spotify_device = device["id"]
-						logger.info("spotify device {0}".format(self.spotify_device))
-						#logger.info("refresh token is {0}".format(self.spotify_auth.token))
-						break
-				await asyncio.sleep(60)
+				if self.spotify_client is not None:
+					devices = self.spotify_client.current_user_player_devices()
+					for device in devices["devices"]:
+						if device["is_active"]:
+							self.spotify_device = device["id"]
+							logger.info("spotify device {0}".format(self.spotify_device))
+							#logger.info("refresh token is {0}".format(self.spotify_auth.token))
+							break
+					await asyncio.sleep(60)
+				else:
+					await asyncio.sleep(5)
 		except asyncio.CancelledError:
 			pass
 		except (OSError, discord.ConnectionClosed):
@@ -75,21 +75,23 @@ class SpotifyCommands:
 			while not self.bot.is_closed():
 				if self.spotify_device is not None:
 					if len(self.song_list) != 0:
-						spotify_track = self.song_list.pop(0)
-						logger.info("playing {0[name]}".format(spotify_track))
-						self.spotify.current_user_player_play(device_id=self.spotify_device, context_uri=self.spotify_context, uris=spotify_track['uri']) #blocking?
-						bot_game = discord.Game(name="Playing: {0[name]}".format(spotify_track))
-						await self.bot.change_presence(status=discord.Status.online, game=bot_game)
-						await asyncio.sleep(float(spotify_track["duration_ms"])/1000)
+						spotify_track_id = self.song_list.pop(0)
+						logger.info("playing {0}".format(spotify_track_id))
+						self.spotify_client.current_user_player_play(device_id=self.spotify_device, context_uri=self.spotify_context, tracks=spotify_track_id) #blocking?
+					await asyncio.sleep(1)
+					spotify_current = self.spotify_client.current_user_player_playing() #blocking?
+					if "item" in spotify_current:
+						logger.info("playing {0[item][name]}".format(spotify_current))
+						player_game = discord.Game(name=str(spotify_current['item']['name']))
+						await self.bot.change_presence(status=discord.Status.online, game=player_game)
+						player_sleep = (float(spotify_current['item']['duration_ms'])-float(spotify_current['progress_ms'])+1.0)/1000
+						logger.info("sleeping {0}".format(player_sleep))
+						await asyncio.sleep(player_sleep)
+						logger.info("next song")
 					else:
-						spotify_current = self.spotify.current_user_player_playing() #blocking?
-						if "item" in spotify_current:
-							spotify_track = spotify_current['item']
-							bot_game = discord.Game(name=str(spotify_track['name']))
-							await self.bot.change_presence(status=discord.Status.online, game=bot_game)
-							await asyncio.sleep(float(spotify_track['duration_ms'])/1000)
-						else:
-							await asyncio.sleep(5)
+						player_game = discord.Game(name="Beep Boop")
+						await self.bot.change_presence(status=discord.Status.idle, game=player_game)
+						await asyncio.sleep(5)
 				else:
 					await asyncio.sleep(5)
 		except asyncio.CancelledError:
@@ -106,18 +108,12 @@ class SpotifyCommands:
 			await ctx.send("Invalid spotify subcommand passed")
 
 	@spotify.command(pass_ctx=True)
-	async def token(self, ctx, spotify_refresh : str):
+	async def token(self, ctx):
 		"""New refresh toke for player."""
 		logger.info("token command issued by {0}".format(ctx.message.author.name))
-
 		await ctx.message.delete()
-
-		spotify_token = {}
-		spotify_token["access_token"] = spotify_refresh
-		spotify_token["expires_at"] = int(time.time()) + 300
-
-		self.spotify_auth.token = spotify_token
-
+		spotify_token = spotipy.util.prompt_for_user_token_auto(self.spotify_username, self.spotify_scope, self.spotify_id, self.spotify_secret)
+		self.spotify_client = spotipy.Spotify(auth=spotify_token)
 		await ctx.send("Spotify refresh token updated")
 
 	@spotify.command(pass_ctx=True)
@@ -128,14 +124,21 @@ class SpotifyCommands:
 			await ctx.send("You are not in a voice channel.")
 		elif ctx.voice_client is not None:
 			logger.info("moving to voice channel " + ctx.message.author.voice.channel.name)
+			await ctx.send("Moved voice channel.")
 			await ctx.voice_client.move_to(ctx.message.author.voice.channel)
 		else:
+			logger.info("creating spotify client")
+			spotify_token = spotipy.util.prompt_for_user_token_auto(self.spotify_username, self.spotify_scope, self.spotify_id, self.spotify_secret)
+			self.spotify_client = spotipy.Spotify(auth=spotify_token)
 			logger.info("joining voice channel " + ctx.message.author.voice.channel.name)
 			await ctx.message.author.voice.channel.connect()
 			logger.info("creating source")
 			source = GstAudio(config.get('spotify', "Gstreamer"))
 			logger.info("playing source")
 			ctx.voice_client.play(source, after=lambda e: print('Player error: %s' % e) if e else None)
+			logger.info("create tasks")
+			self.device_task = self.bot.loop.create_task(SpotifyCommands.device_loop(self))
+			self.player_task = self.bot.loop.create_task(SpotifyCommands.player_loop(self))
 			await ctx.send("Spotify player is online")
 
 	@spotify.command(pass_ctx=True)
@@ -157,9 +160,7 @@ class SpotifyCommands:
 			url_split, url_type = os.path.split(url_split)
 			logger.info("type is {0} and id is {1}".format(url_type, url_id))
 			if url_type == 'track':
-				url_track = self.spotify_client.api.track(id=url_id)
-				await ctx.send("Full track: ```{0}```".format(url_track))
-				self.song_list.append(url_track) #blocking?
+				self.song_list.append(url_id)
 				await ctx.send("Added song")
 			else:
 				await ctx.send("Only single tracks for now")
@@ -190,8 +191,10 @@ class SpotifyCommands:
 			if skip_amount >= skip_needed:
 				await ctx.send("Skipped current song")
 				self.skip_list = []
-				self.spotify.current_user_player_skip(device_id=self.spotify_device) #blocking?
+				if len(self.song_list) == 0:
+					self.spotify_client.current_user_player_next(device_id=self.spotify_device) #blocking?
 				self.player_task.cancel()
+				await asyncio.sleep(1)
 				self.player_task = self.bot.loop.create_task(SpotifyCommands.player_loop(self))
 			else:
 				await ctx.send("There are {0} people out of {1} needed to skip this song".format(skip_amount, skip_needed))
