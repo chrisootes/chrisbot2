@@ -2,20 +2,16 @@ import discord
 from discord.ext import commands
 
 import asyncio
+import logging
+import traceback
 
-from discordbot.utils.logger import logger
-from discordbot.utils.arguments import arguments
 from discordbot.utils.config import config
 
-class Bot(commands.Bot):
-	def __init__(self):
-		#TODO pass this tru?
-		super().__init__(
-			command_prefix=commands.when_mentioned_or(config.get('DEFAULT', 'Prefix')),
-			description=config.get('DEFAULT', 'Description'),
-			pm_help=config.get('DEFAULT', 'PMhelp')
-		)
+logger = logging.getLogger(__name__)
 
+class Bot(commands.Bot):
+	def __init__(self, **options):
+		super().__init__(**options)
 		for cog in config.sections():
 			if config.getboolean(cog, "Load"):
 				logger.info("loading cog {0}".format(cog))
@@ -23,6 +19,7 @@ class Bot(commands.Bot):
 					self.load_extension("discordbot.cogs.{0}".format(cog))
 				except Exception as e:
 					logger.warning("cannot load cog {0} due to {1.__class__.__name__}: {1}".format(cog, e))
+					traceback.print_exc()
 
 		logger.info("finished loading cogs")
 
@@ -31,7 +28,7 @@ class Bot(commands.Bot):
 			await ctx.send("This command is not found.")
 			logger.warning("command error in {0.invoked_with}".format(ctx))
 		elif isinstance(error, commands.MissingRequiredArgument):
-			await ctx.send("This command is missing {0}.param.".format(error))
+			await ctx.send("This command is missing an argument.")
 			logger.warning("command error in {0.invoked_with}".format(ctx))
 		elif isinstance(error, commands.TooManyArguments):
 			await ctx.send("This command is given to many arguments.")

@@ -9,14 +9,13 @@ from gi.repository import Gst, GstApp
 
 Gst.init(None)
 
+logger = logging.getLogger(__name__)
+
 class GstAudio(discord.AudioSource):
 	def __init__(self, config):
-		self.logger = logging.getLogger("discord.gstaudio")
-
-		#TODO parse this from config
+		#TODO parse this from config for more dynamic setup
 		#pipeline = parse(config)
 		self.gst_device = "alsa_output.pci-0000_00_05.0.analog-stereo.monitor"
-		self.logger.info(self.gst_device)
 		self.gst_pipeline = Gst.Pipeline.new("test-pipeline")
 		self.gst_source = Gst.ElementFactory.make("pulsesrc", "gst_source")
 		self.gst_source.set_property("device", self.gst_device)
@@ -44,7 +43,7 @@ class GstAudio(discord.AudioSource):
 		return True
 
 	def read(self):
-		#TODO optimize deblock or vm is to slow
+		#TODO optimize?
 		gst_sample = self.gst_sink.pull_sample()
 		gst_buffer = gst_sample.get_buffer()
 		return gst_buffer.extract_dup(0, gst_buffer.get_size())
