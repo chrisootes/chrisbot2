@@ -26,7 +26,10 @@ class ExampleCommands:
     async def reet(self, ctx, argument : int):
         """Rates with buts."""
         logger.info("reet command issued by {0}".format(ctx.message.author.name))
-        await ctx.send(argument*"<:reet:381582414499282951>" + " from {0.message.author}".format(ctx))
+        if(argument >= 1 and argument <= 5):
+            await ctx.send(argument*"<:reet:381582414499282951>" + " from {0.message.author}".format(ctx))
+        else:
+            await ctx.send("Your rating it wrong {0.message.author}!".format(ctx))
 
     @commands.command(pass_context=True)
     async def debug(self, ctx, argument : str):
