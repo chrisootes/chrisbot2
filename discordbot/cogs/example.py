@@ -20,7 +20,7 @@ class ExampleCommands:
     async def echo(self, ctx, *argument : str):
         """Repeats message."""
         logger.info("echo command issued by {0}".format(ctx.message.author.name))
-        await ctx.send("Reply: {0}".format(argument))
+        await ctx.send("Echo: {0}".format(" ".join(argument)))
 
     @commands.command(pass_context=True)
     async def reet(self, ctx, argument : int):
