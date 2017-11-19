@@ -49,7 +49,7 @@ class RedditCommands:
             if(reddit_counter == reddit_random):
                 logger.info("reddit post is nsfw is {0}".format(reddit_post.over_18))
                 if(reddit_post.over_18 == True and channel_nsfw == False):
-                    await ctx.send("This post is nsfw and this channal is not")
+                    await ctx.send("This post is nsfw and this chat is not")
                 else:
                     logger.info("reddit post url is {0}".format(reddit_post.url))
                     await ctx.send(reddit_post.url)
