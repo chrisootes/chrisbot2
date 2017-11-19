@@ -17,7 +17,7 @@ class ExampleCommands:
         self.bot = bot
 
     @commands.command(pass_context=True)
-    async def echo(self, ctx, argument : str):
+    async def echo(self, ctx, *argument : str):
         """Repeats message."""
         logger.info("echo command issued by {0}".format(ctx.message.author.name))
         await ctx.send("Reply: {0}".format(argument))
@@ -32,6 +32,7 @@ class ExampleCommands:
             await ctx.send("Your rating it wrong {0.message.author}!".format(ctx))
 
     @commands.command(pass_context=True)
+    @commands.is_owner()
     async def debug(self, ctx, argument : str):
         """Debug command."""
         logger.info("debug command issued by {0}".format(ctx.message.author.name))
